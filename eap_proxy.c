@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* uplink port settings */
-	strlcpy(stuff.ifaces.uplink.ont_dev, "em0", sizeof(stuff.ifaces.ont.ont_dev));
+	strlcpy(stuff.ifaces.uplink.ont_dev, "vlan0", sizeof(stuff.ifaces.ont.ont_dev));
 	strlcpy(stuff.ifaces.uplink.uplink_dev, "em1", sizeof(stuff.ifaces.ont.uplink_dev));
 	strlcpy(stuff.ifaces.uplink.filter, "ether proto 0x888e", sizeof(stuff.ifaces.ont.filter));
 	stuff.ifaces.uplink.is_uplink = 1;
