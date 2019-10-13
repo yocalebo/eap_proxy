@@ -44,8 +44,8 @@ struct int_list {
 };
 
 struct thread_list {
-	pthread_t capture_loop_thread1;
-	pthread_t capture_loop_thread2;
+	pthread_t thread1;
+	pthread_t thread2;
 };
 
 struct data_list {
