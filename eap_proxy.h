@@ -31,11 +31,11 @@
  */
 
 struct int_settings {
-	char ont_dev[15]; // interface to ONT device
-	char uplink_dev[15]; // interface to uplink port on ATT modem
-	char filter[19]; // filter only EAPoL packets
-	bpf_u_int32 ip; // needed for pcap_compile last argument
-	int is_uplink; // EAPoL traffic initiates from uplink port on ATT modem
+	char ont_dev[15]; /* interface to ONT device */
+	char uplink_dev[15]; /* interface to uplink port on ATT modem */
+	char filter[19]; /* filter only EAPoL packets */
+	bpf_u_int32 ip; /* needed for pcap_compile last argument */
+	int is_uplink; /* how we differentiate between capture and inject interfaces */
 };
 
 struct int_list {
