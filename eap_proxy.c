@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 	if ((pthread_create(&stuff.threads.thread1, NULL,
 			    &pkt_capture, &stuff.ifaces.ont)) != 0) {
 		fprintf(stderr, "failed to create pthread for ont port\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* uplink port settings */
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
 	if ((pthread_create(&stuff.threads.thread2, NULL,
 			    &pkt_capture, &stuff.ifaces.uplink)) != 0) {
 		fprintf(stderr, "failed to create pthread for uplink port\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* wait for threads to exit */
@@ -110,33 +110,33 @@ void *pkt_capture(void *arg) {
 	}
 	else {
 		fprintf(stderr, "ints.is_uplink has incorrect value %d\n", ints->is_uplink);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* open em0 interface for live capture */
 	if ((pkt_handle = pcap_open_live(capture_interface, BUFFER, PROMISCOUS, TIMEOUT, err_buf)) == NULL) {
 		fprintf(stderr, "failed to open device with error %s\n", err_buf);
-		exit(2);
+		exit(EXIT_FAILURE);
 	}
 	/* only interested in inbound packets */
 	if ((pcap_setdirection(pkt_handle, PCAP_D_IN)) == -1) {
 		fprintf(stderr, "could not set direction on capture device.\n");
 		pcap_close(pkt_handle);
-		exit(2);
+		exit(EXIT_FAILURE);
 	}
 	/* compile the filter to be applied to pcap_t handle */
 	pthread_mutex_lock(&lock);
 	if (pcap_compile(pkt_handle, &filter, ints->filter, 1, ints->ip) == -1) {
 		fprintf(stderr, "invalid filter: %s\n", pcap_geterr(pkt_handle)); 
 		pcap_close(pkt_handle);
-		exit(2);
+		exit(EXIT_FAILURE);
 	}
 	pthread_mutex_unlock(&lock);
 	/* set filter */
 	if ((pcap_setfilter(pkt_handle, &filter)) == -1) {
 		fprintf(stderr, "failed to set filter with error: %s\n", pcap_geterr(pkt_handle));
 		pcap_close(pkt_handle);
-		exit(2);
+		exit(EXIT_FAILURE);
 	}
 
 	/* process packets and then send them out other interface */
@@ -156,14 +156,14 @@ void pkt_injection(u_char *user, const struct pcap_pkthdr *packet_header, const 
 	/* setup the device to inject packets to */
 	if ((inject_handle = pcap_open_live(inject_interface, BUFFER, PROMISCOUS, TIMEOUT, err_buf)) == NULL) {
 		fprintf(stderr, "could not open device with error %s\n", err_buf);
-		exit(2);
+		exit(EXIT_FAILURE);
 	}
 
 	/* send our packets out */
 	if ((res = pcap_inject(inject_handle, packet_data, packet_header->len) == -1)) {
 		fprintf(stderr, "failed to write packet on interface\n");
 		pcap_close(inject_handle);
-		exit(2);
+		exit(EXIT_FAILURE);
 	}
 
 }
