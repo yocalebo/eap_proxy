@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 	memset(&stuff, 0, sizeof(stuff));
 
 	/* ONT port settings */
-	strlcpy(stuff.ifaces.ont.ont_dev, "em0", sizeof(stuff.ifaces.ont.ont_dev));
+	strlcpy(stuff.ifaces.ont.ont_dev, "vlan0", sizeof(stuff.ifaces.ont.ont_dev));
 	strlcpy(stuff.ifaces.ont.uplink_dev, "em1", sizeof(stuff.ifaces.ont.uplink_dev));
 	strlcpy(stuff.ifaces.ont.filter, "ether proto 0x888e", sizeof(stuff.ifaces.ont.filter));
 	stuff.ifaces.ont.is_uplink = 0;
