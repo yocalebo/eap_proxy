@@ -65,8 +65,7 @@ int main(int argc, char *argv[]) {
 	stuff.ifaces.ont.is_uplink = 0;
 
 	/* create the thread for ONT port */
-	if ((pthread_create(&stuff.threads.thread1, NULL,
-			    &pkt_capture, &stuff.ifaces.ont)) != 0) {
+	if ((pthread_create(&stuff.threads.thread1, NULL, &pkt_capture, &stuff.ifaces.ont)) != 0) {
 		fprintf(stderr, "failed to create pthread for ont port\n");
 		exit(1);
 	}
@@ -78,8 +77,7 @@ int main(int argc, char *argv[]) {
 	stuff.ifaces.uplink.is_uplink = 1;
 
 	/* create the thread for uplink port */
-	if ((pthread_create(&stuff.threads.thread2, NULL,
-			    &pkt_capture, &stuff.ifaces.uplink)) != 0) {
+	if ((pthread_create(&stuff.threads.thread2, NULL, &pkt_capture, &stuff.ifaces.uplink)) != 0) {
 		fprintf(stderr, "failed to create pthread for uplink port\n");
 		exit(1);
 	}
