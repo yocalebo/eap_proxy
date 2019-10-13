@@ -53,7 +53,7 @@ void *pkt_capture(void *arg);
 
 int main(int argc, char *argv[]) {
 
-	struct data_list stuff; /* defined in eap_proxy.h */
+	struct data stuff; /* defined in eap_proxy.h */
 
 	/* initialize stuff struct with zeros */
 	memset(&stuff, 0, sizeof(stuff));

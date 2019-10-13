@@ -48,7 +48,7 @@ struct thread_list {
 	pthread_t thread2;
 };
 
-struct data_list {
+struct data {
 	struct thread_list threads;
 	struct int_list ifaces;
 };
