@@ -35,6 +35,7 @@
 #include <pcap.h> /* pcap functions */
 #include <pthread.h> /* pthread library */
 #include "eap_proxy.h" /* boilerplate structure */ 
+#include "logging.h" /*for log_* functions */
 
 #define BUFFER 9000 /* max bytes to capture for 1 packet */ 
 #define PROMISCOUS 0 /* set promiscous mode for given interface */
@@ -66,7 +67,7 @@ int main(int argc, char *argv[]) {
 
 	/* create the thread for ONT port */
 	if ((pthread_create(&stuff.threads.thread1, NULL, &pkt_capture, &stuff.ifaces.ont)) != 0) {
-		fprintf(stderr, "failed to create pthread for ont port\n");
+		log_err("failed to create pthread for ont port");
 		exit(EXIT_FAILURE);
 	}
 
@@ -78,15 +79,18 @@ int main(int argc, char *argv[]) {
 
 	/* create the thread for uplink port */
 	if ((pthread_create(&stuff.threads.thread2, NULL, &pkt_capture, &stuff.ifaces.uplink)) != 0) {
-		fprintf(stderr, "failed to create pthread for uplink port\n");
+		log_err("failed to create pthread for uplink port");
 		exit(EXIT_FAILURE);
 	}
+
+	log_info("starting up!");
 
 	/* wait for threads to exit */
 	pthread_join(stuff.threads.thread1, NULL);
 	pthread_join(stuff.threads.thread2, NULL);
 
 	return 0;
+
 }
 
 void *pkt_capture(void *arg) {
