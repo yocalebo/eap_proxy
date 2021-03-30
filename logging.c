@@ -1,7 +1,7 @@
 /*
  * BSD 3-Clause License
  *
- * Copyright (c) 2019, Caleb St. John
+ * Copyright (c) 2021, Caleb St. John
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,25 +31,24 @@
  */
 
 #include <syslog.h>
+#include <stdarg.h>
 
-void log_info(char *message) {
+void log_info(char *msg, ...) {
 
-	struct syslog_data sd = SYSLOG_DATA_INIT;
+	va_list ap;
+	va_start(ap, msg);
 
-	openlog_r("eap_proxy", LOG_PID | LOG_NDELAY, LOG_DAEMON, &sd);
-	setlogmask_r(LOG_UPTO(LOG_INFO), &sd);
-	syslog_r(LOG_INFO, &sd, "%s", message);
-	closelog_r(&sd);
-	return;
+	openlog("eap-proxy", LOG_PID, LOG_USER);
+	vsyslog(LOG_INFO, msg, ap);
+	closelog();
 }
 
-void log_err(char *message) {
+void log_err(char *msg, ...) {
 
-	struct syslog_data sd = SYSLOG_DATA_INIT;
+	va_list ap;
+	va_start(ap, msg);
 
-	openlog_r("eap_proxy", LOG_PID | LOG_NDELAY, LOG_DAEMON, &sd);
-	setlogmask_r(LOG_UPTO(LOG_DEBUG), &sd);
-	syslog_r(LOG_ERR, &sd, "%s", message);
-	closelog_r(&sd);
-	return;
+	openlog("eap-proxy", LOG_PID, LOG_USER);
+	vsyslog(LOG_ERR, msg, ap);
+	closelog();
 }

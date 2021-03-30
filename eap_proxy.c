@@ -1,7 +1,7 @@
 /*
  * BSD 3-Clause License
  *
- * Copyright (c) 2019, Caleb St. John
+ * Copyright (c) 2021, Caleb St. John
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,140 +31,123 @@
  */
 
 #include <stdlib.h> /* for exit() */
+#include <stdio.h> /* STDOUT/IN/ERR */
 #include <string.h> /* for strlcpy */
-#include <pcap.h> /* pcap functions */
-#include <pthread.h> /* pthread library */
-#include "eap_proxy.h" /* boilerplate structure */ 
+#include <unistd.h> /* fork/exec/close and friends */
+#include <sys/stat.h> /* for umask */
+#include <pcap.h> /* pcap api */
 #include "logging.h" /*for log_* functions */
 
 #define BUFFER 9000 /* max bytes to capture for 1 packet */ 
-#define PROMISCOUS 0 /* set promiscous mode for given interface */
+#define PROMISCOUS 1 /* set promiscous mode for given interface */
 #define TIMEOUT 10 /* read timeout in milliseconds */
 #define LOOPFOREVER -1 /* loop forever in pcap_loop */
+#define FILTER "ether proto 0x888e" /* only care about EAPoL pkts */
 
-/* pcap_compile is not thread safe on openBSD because
- * of the version of libpcap that comes by default
- * so define a lock variable to be used when compiling
- * the filter to be applied to the pcap handle
- */
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-
-void pkt_injection(u_char *user, const struct pcap_pkthdr *packet_header, const u_char *packet_data);
-void *pkt_capture(void *arg);
+void child_setup();
+void pkt_injection(u_char *user, const struct pcap_pkthdr *pkt_hdr, const u_char *pkt_data);
+void pkt_capture(char *capture_int, char *inj_int);
 
 int main(int argc, char *argv[]) {
 
-	struct data stuff; /* defined in eap_proxy.h */
+	pid_t to_ont, to_att;
 
-	/* initialize stuff struct with zeros */
-	memset(&stuff, 0, sizeof(stuff));
+	/* fork 2 children (1 for each inteface) */
+	(to_ont = fork()) && (to_att = fork());
 
-	/* ONT port settings */
-	strlcpy(stuff.ifaces.ont.ont_dev, "vlan0", sizeof(stuff.ifaces.ont.ont_dev));
-	strlcpy(stuff.ifaces.ont.uplink_dev, "em1", sizeof(stuff.ifaces.ont.uplink_dev));
-	strlcpy(stuff.ifaces.ont.filter, "ether proto 0x888e", sizeof(stuff.ifaces.ont.filter));
-	stuff.ifaces.ont.is_uplink = 0;
-
-	/* create the thread for ONT port */
-	if ((pthread_create(&stuff.threads.thread1, NULL, &pkt_capture, &stuff.ifaces.ont)) != 0) {
-		log_err("failed to create pthread for ont port");
+	if ((to_ont < 0) || (to_att < 0)) {
+		log_err("fork() failed");
 		exit(EXIT_FAILURE);
 	}
-
-	/* uplink port settings */
-	strlcpy(stuff.ifaces.uplink.ont_dev, "vlan0", sizeof(stuff.ifaces.ont.ont_dev));
-	strlcpy(stuff.ifaces.uplink.uplink_dev, "em1", sizeof(stuff.ifaces.ont.uplink_dev));
-	strlcpy(stuff.ifaces.uplink.filter, "ether proto 0x888e", sizeof(stuff.ifaces.ont.filter));
-	stuff.ifaces.uplink.is_uplink = 1;
-
-	/* create the thread for uplink port */
-	if ((pthread_create(&stuff.threads.thread2, NULL, &pkt_capture, &stuff.ifaces.uplink)) != 0) {
-		log_err("failed to create pthread for uplink port");
-		exit(EXIT_FAILURE);
+	else if (to_ont == 0) {
+		/* name the grandchild */
+		strlcpy(argv[0], "TO_ATT", sizeof(argv[0]));
+		child_setup();
+		pkt_capture("em1", "vlan0");
+	}
+	else if (to_att == 0) {
+		/* name the grandchild */
+		strlcpy(argv[0], "TO_ONT", sizeof(argv[0]));
+		child_setup();
+		pkt_capture("vlan0", "em1");
+	}
+	else {
+		/* parent */
+		exit(EXIT_SUCCESS);
 	}
 
-	log_info("starting up!");
-
-	/* wait for threads to exit */
-	pthread_join(stuff.threads.thread1, NULL);
-	pthread_join(stuff.threads.thread2, NULL);
-
-	return 0;
+	return EXIT_SUCCESS;
 
 }
 
-void *pkt_capture(void *arg) {
+void child_setup() {
 
-	struct int_settings *ints = (struct int_settings* ) arg;
-	struct bpf_program filter;
-	pcap_t *pkt_handle;
-	char err_buf[PCAP_ERRBUF_SIZE];
-	char *capture_interface;
-	char *inject_interface;
+	umask(0);
 
-	if (ints->is_uplink == 1) {
-		capture_interface = ints->uplink_dev;
-		inject_interface = ints->ont_dev;
-	}
-	else if (ints->is_uplink == 0) {
-		capture_interface = ints->ont_dev;
-		inject_interface = ints->uplink_dev;
-	}
-	else {
-		fprintf(stderr, "ints.is_uplink has incorrect value %d\n", ints->is_uplink);
+	if (setsid() < 0) {
+		log_err("setsid() failed");
 		exit(EXIT_FAILURE);
 	}
 
-	/* open em0 interface for live capture */
-	if ((pkt_handle = pcap_open_live(capture_interface, BUFFER, PROMISCOUS, TIMEOUT, err_buf)) == NULL) {
-		fprintf(stderr, "failed to open device with error %s\n", err_buf);
+	close(STDOUT_FILENO);
+	close(STDIN_FILENO);
+	close(STDERR_FILENO);
+}
+
+void pkt_capture(char *capture_int, char *inj_int) {
+
+	struct bpf_program filter;
+	bpf_u_int32 ip;
+	pcap_t *pkt_handle = NULL;
+	char err_buf[PCAP_ERRBUF_SIZE];
+
+	/* open interface for live capture */
+	if ((pkt_handle = pcap_open_live(capture_int, BUFFER, PROMISCOUS, TIMEOUT, err_buf)) == NULL) {
+		log_err("failed to open device %s with error %s", capture_int, err_buf);
 		exit(EXIT_FAILURE);
 	}
 	/* only interested in inbound packets */
 	if ((pcap_setdirection(pkt_handle, PCAP_D_IN)) == -1) {
-		fprintf(stderr, "could not set direction on capture device.\n");
+		log_err("could not set direction on capture device.");
 		pcap_close(pkt_handle);
 		exit(EXIT_FAILURE);
 	}
-	/* compile the filter to be applied to pcap_t handle */
-	pthread_mutex_lock(&lock);
-	if (pcap_compile(pkt_handle, &filter, ints->filter, 1, ints->ip) == -1) {
-		fprintf(stderr, "invalid filter: %s\n", pcap_geterr(pkt_handle)); 
+	/* compile bpf filter */
+	if (pcap_compile(pkt_handle, &filter, FILTER, 1, ip) == -1) {
+		log_err("invalid filter: %s", pcap_geterr(pkt_handle)); 
 		pcap_close(pkt_handle);
 		exit(EXIT_FAILURE);
 	}
-	pthread_mutex_unlock(&lock);
-	/* set filter */
+
+	/* set bpf filter */
 	if ((pcap_setfilter(pkt_handle, &filter)) == -1) {
-		fprintf(stderr, "failed to set filter with error: %s\n", pcap_geterr(pkt_handle));
+		log_err("failed to set filter with error: %s", pcap_geterr(pkt_handle));
 		pcap_close(pkt_handle);
 		exit(EXIT_FAILURE);
 	}
 
 	/* process packets and then send them out other interface */
-	pcap_loop(pkt_handle, LOOPFOREVER, pkt_injection, inject_interface);
-
+	pcap_loop(pkt_handle, LOOPFOREVER, pkt_injection, inj_int);
 	pcap_close(pkt_handle);
-	return NULL;
+
 }
 
-void pkt_injection(u_char *user, const struct pcap_pkthdr *packet_header, const u_char *packet_data) {
+void pkt_injection(u_char *user, const struct pcap_pkthdr *pkt_hdr, const u_char *pkt_data) {
 
-	char *inject_interface = user;
 	char err_buf[PCAP_ERRBUF_SIZE];
-	pcap_t *inject_handle;
+	pcap_t *inj_handle = NULL;
 	int res;
 
 	/* setup the device to inject packets to */
-	if ((inject_handle = pcap_open_live(inject_interface, BUFFER, PROMISCOUS, TIMEOUT, err_buf)) == NULL) {
-		fprintf(stderr, "could not open device with error %s\n", err_buf);
+	if ((inj_handle = pcap_open_live(user, BUFFER, PROMISCOUS, TIMEOUT, err_buf)) == NULL) {
+		log_err("could not open device with error %s", err_buf);
 		exit(EXIT_FAILURE);
 	}
 
 	/* send our packets out */
-	if ((res = pcap_inject(inject_handle, packet_data, packet_header->len) == -1)) {
-		fprintf(stderr, "failed to write packet on interface\n");
-		pcap_close(inject_handle);
+	if ((res = pcap_inject(inj_handle, pkt_data, pkt_hdr->len) == -1)) {
+		log_err("failed to write packet on interface %s", user);
+		pcap_close(inj_handle);
 		exit(EXIT_FAILURE);
 	}
 

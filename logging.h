@@ -1,7 +1,7 @@
 /*
  * BSD 3-Clause License
  *
- * Copyright (c) 2019, Caleb St. John
+ * Copyright (c) 2021, Caleb St. John
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,5 +30,5 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-void log_info(char *message);
-void log_err(char *message);
+void log_info(char *msg, ...);
+void log_err(char *msg, ...);
