@@ -60,13 +60,13 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 	else if (to_ont == 0) {
-		/* name the grandchild */
+		/* name the child */
 		strlcpy(argv[0], "TO_ATT", sizeof(argv[0]));
 		child_setup();
 		pkt_capture("em1", "vlan0");
 	}
 	else if (to_att == 0) {
-		/* name the grandchild */
+		/* name the child */
 		strlcpy(argv[0], "TO_ONT", sizeof(argv[0]));
 		child_setup();
 		pkt_capture("vlan0", "em1");
